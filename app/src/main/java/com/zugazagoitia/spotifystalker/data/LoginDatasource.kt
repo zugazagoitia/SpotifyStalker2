@@ -96,7 +96,7 @@ class LoginDatasource (private val context: Context) {
     fun logout() {
         sharedPreferences().edit().clear().apply()
     }
-    //TODO: Add biometric login https://developer.android.com/training/sign-in/biometric-auth
+    //TODO: Add biometric login? https://developer.android.com/training/sign-in/biometric-auth
     fun loginWithSavedCredentials(): Result<LoggedInUser>{
         return try {
             val sharedPreferences = sharedPreferences()
@@ -120,7 +120,7 @@ class LoginDatasource (private val context: Context) {
         }
     }
 
-    //TODO: Add biometric login https://developer.android.com/training/sign-in/biometric-auth
+    //TODO: Add biometric login? https://developer.android.com/training/sign-in/biometric-auth
     private fun saveSessionToDevice(
         spotifySession: Session,
         username: String,

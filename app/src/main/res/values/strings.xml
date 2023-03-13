@@ -44,7 +44,7 @@
         vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
     </string>
     <string name="title_activity_fiend_list">FiendList</string>
-    <string name="topBarText">Friend List</string>
+    <string name="topBarText">Friends</string>
     <string name="refreshIconDescription">Refresh list</string>
     <string name="menuIconDescription">Menu</string>
     <string name="login">Login</string>
@@ -59,4 +59,7 @@
     <string name="albumIcon">Album Icon</string>
     <string name="playlistIcon">Playlist Icon</string>
     <string name="userProfilePicture">\" Profile Picture\"</string>
+    <string name="openInSpotify">Open in Spotify</string>
+    <string name="profileIcon">Profile Icon</string>
+    <string name="loading_main_activity">Logging in...</string>
 </resources>
