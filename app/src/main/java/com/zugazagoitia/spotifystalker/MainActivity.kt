@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.AutofillNode
 import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -35,9 +34,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.zugazagoitia.spotifystalker.data.LoginDatasource
 import com.zugazagoitia.spotifystalker.data.LoginRepository
-import com.zugazagoitia.spotifystalker.model.LoggedInUser
 import com.zugazagoitia.spotifystalker.ui.theme.SpotifyStalkerTheme
 import com.zugazagoitia.spotifystalker2.R
 import kotlinx.coroutines.CoroutineScope
@@ -48,15 +47,18 @@ import xyz.gianlu.librespot.core.Session
 
 class MainActivity : ComponentActivity() {
 
-    var loginRepository: LoginRepository = LoginRepository.getInstance(LoginDatasource(this))!!
+    var loginRepository: LoginRepository = LoginRepository.getInstance(LoginDatasource(this))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE)
 
         setContent {
             SpotifyStalkerTheme {
                 // A surface container using the 'background' color from the theme
+                val systemUiController = rememberSystemUiController()
+                systemUiController.setSystemBarsColor(MaterialTheme.colorScheme.background)
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -113,22 +115,23 @@ class MainActivity : ComponentActivity() {
             loading = false
         }
 
-        coroutineScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
-                loading = true
-            }
-            try {
-                loginRepository.loginSavedCredentials().getOrThrow()
-                launchFriendListActivity()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            withContext(Dispatchers.Main) {
-                loading = false
+        if(LoginRepository.isLoggedIn) {
+            launchFriendListActivity()
+        } else {
+            coroutineScope.launch(Dispatchers.IO) {
+                withContext(Dispatchers.Main) {
+                    loading = true
+                }
+                try {
+                    loginRepository.loginSavedCredentials().getOrThrow()
+                    launchFriendListActivity()
+                } catch (_: Exception) {
+                }
+                withContext(Dispatchers.Main) {
+                    loading = false
+                }
             }
         }
-
-
 
 
         Scaffold(

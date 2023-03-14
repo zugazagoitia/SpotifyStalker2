@@ -4,10 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.Intent.*
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.view.Window
 import android.widget.Toast
@@ -17,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.ZeroCornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -36,6 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.facebook.drawee.backends.pipeline.Fresco
 import com.facebook.imagepipeline.backends.okhttp3.OkHttpImagePipelineConfigFactory
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.components.imageComponent
 import com.skydoves.landscapist.fresco.FrescoImage
@@ -47,15 +46,11 @@ import com.zugazagoitia.spotifystalker.data.LoginRepository
 import com.zugazagoitia.spotifystalker.model.*
 import com.zugazagoitia.spotifystalker.ui.theme.SpotifyStalkerTheme
 import com.zugazagoitia.spotifystalker2.R
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
-import java.net.URI
 
 
-class FriendList : ComponentActivity() {
+class FriendList() : ComponentActivity() {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,13 +70,16 @@ class FriendList : ComponentActivity() {
         Fresco.initialize(this, pipelineConfig)
 
         setContent {
+
             SpotifyStalkerTheme {
+                val systemUiController = rememberSystemUiController()
+                systemUiController.setSystemBarsColor(MaterialTheme.colorScheme.primaryContainer)
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Container(repository)
+                    Container(repository, LoginRepository.user!!.user)
                 }
             }
         }
@@ -91,7 +89,7 @@ class FriendList : ComponentActivity() {
     @SuppressLint("CoroutineCreationDuringComposition")
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun Container(friendListRepository: IFriendListRepository) {
+    fun Container(friendListRepository: IFriendListRepository, user: RichProfile) {
 
         val coroutineScope: CoroutineScope = rememberCoroutineScope()
         val list = remember { mutableStateListOf<UserPlayingInfo>() }
@@ -99,6 +97,8 @@ class FriendList : ComponentActivity() {
         var loading by remember {
             mutableStateOf(true)
         }
+
+        val drawerState = rememberDrawerState(DrawerValue.Closed)
 
         fun refresh() {
             coroutineScope.launch(Dispatchers.IO) {
@@ -115,40 +115,67 @@ class FriendList : ComponentActivity() {
             }
         }
 
+        fun logout() {
+            LoginRepository.getInstance()!!.logout()
+            val intent = Intent(this@FriendList, MainActivity::class.java)
+            intent.addFlags(FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
+            finish()
+        }
+
         refresh()
 
-        Scaffold(
-            topBar = {
-                Column() {
-                    TopBar { refresh() }
-                    if (loading)
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .semantics(mergeDescendants = true) {}
-                                .fillMaxWidth()
-                        )
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+
+            drawerContent = {
+                ModalDrawerSheet {
+                    DrawerContent(user = user, logoutFunction = { logout() })
                 }
             },
-            content = { innerPadding ->
-                Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
-                LazyColumn(
-                    contentPadding = innerPadding,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                ) {
-                    items(list.size) { index ->
-                        FriendItem(list[index])
+            content = {
+                Scaffold(
+                    topBar = {
+                        Column() {
+                            TopBar(
+                                drawerState = drawerState,
+                                refresh = { refresh() },
+                                coroutineScope = coroutineScope
+                            )
+                            if (loading)
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .semantics(mergeDescendants = true) {}
+                                        .fillMaxWidth()
+                                )
+                        }
+                    },
+                    content = { innerPadding ->
+                        Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
+                        LazyColumn(
+                            contentPadding = innerPadding,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                        ) {
+                            items(list.size) { index ->
+                                FriendItem(list[index])
+                            }
+                        }
                     }
-                }
+                )
             }
-
         )
+
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun TopBar(refresh: () -> Unit) {
+    fun TopBar(
+        refresh: () -> Unit,
+        drawerState: DrawerState,
+        coroutineScope: CoroutineScope
+    ) {
         MediumTopAppBar(
             title = {
                 Text(
@@ -158,7 +185,7 @@ class FriendList : ComponentActivity() {
                 )
             },
             navigationIcon = {
-                IconButton(onClick = { /* TODO: Menu */ }) {
+                IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                     Icon(
                         imageVector = Icons.Filled.Menu,
                         contentDescription = stringResource(R.string.menuIconDescription)
@@ -180,6 +207,124 @@ class FriendList : ComponentActivity() {
 
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun DrawerContent(user: RichProfile, logoutFunction: () -> Unit) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+        , shape = MaterialTheme.shapes.medium.copy(topStart = ZeroCornerSize)
+        ) {
+            Column(modifier = Modifier.padding(12.dp))
+            {
+                //User Image
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    FrescoImage(
+                        imageUrl = user.imageUrl ?: "",
+                        imageOptions = ImageOptions(
+                            contentDescription = buildString {
+                                append(user.name!!)
+                                append(stringResource(R.string.userProfilePicture))
+                            },
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.Center,
+                        ),
+                        previewPlaceholder = R.drawable.resource_default,
+                        loading = {
+                            Box(Modifier.matchParentSize()) {
+                                CircularProgressIndicator(Modifier.align(Alignment.Center))
+                            }
+                        },
+                        failure = {
+                            painterResource(R.drawable.resource_default)
+                        },
+                        component = imageComponent {
+                            +PlaceholderPlugin.Failure(painterResource(id = R.drawable.resource_default))
+                        },
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                    )
+                    IconButton(
+                        onClick = { logoutFunction() },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Logout,
+                            contentDescription = "Logout",
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+                // The user's name in bold title the number of playlists, followers and following underneath in normal text
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = user.name!!,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = buildString {
+                            append(user.followersCount)
+                            append(" ")
+                            append(stringResource(R.string.followers))
+                            append(" | ")
+                            append(user.followingCount)
+                            append(" ")
+                            append(stringResource(R.string.following))
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = buildString {
+                            append(user.totalPublicPlaylistsCount)
+                            append(" ")
+                            append(stringResource(R.string.playlists))
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+        }
+        NavigationDrawerItem(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Source,
+                    contentDescription = "Source Code",
+                )
+            },
+            label = { Text(text = "Source code") },
+            selected = false,
+            onClick = {
+                val repo = "https://github.com/zugazagoitia/SpotifyStalker2"
+                val intent = Intent(ACTION_VIEW, Uri.parse(repo))
+                startActivity(intent)
+            }
+        )
+    }
 
     @Composable
     fun DataRow(
@@ -249,7 +394,11 @@ class FriendList : ComponentActivity() {
                     )
                 }
                 userPlayingInfo.track?.album?.name?.let {
-                    Divider(thickness = Dp.Hairline, modifier = Modifier.padding(all = 2.dp))
+                    Divider(
+                        thickness = Dp.Hairline,
+                        modifier = Modifier.padding(vertical = 3.dp, horizontal = 25.dp),
+                        color = MaterialTheme.colorScheme.inverseOnSurface
+                    )
                     DataRow(
                         icon = Icons.Filled.Album,
                         iconDescription = stringResource(R.string.albumIcon),
@@ -258,7 +407,11 @@ class FriendList : ComponentActivity() {
                     )
                 }
                 userPlayingInfo.track?.context?.name?.let {
-                    Divider(thickness = Dp.Hairline, modifier = Modifier.padding(all = 2.dp))
+                    Divider(
+                        thickness = Dp.Hairline,
+                        modifier = Modifier.padding(vertical = 3.dp, horizontal = 25.dp),
+                        color = MaterialTheme.colorScheme.inverseOnSurface
+                    )
                     DataRow(
                         icon = Icons.Filled.QueueMusic,
                         iconDescription = stringResource(R.string.playlistIcon),
@@ -300,7 +453,7 @@ class FriendList : ComponentActivity() {
             ) {
                 Icon(
                     imageVector = Icons.Default.ExitToApp,
-                    contentDescription = "Favorite",
+                    contentDescription = stringResource(R.string.spotify_menu_button_description),
                     tint = MaterialTheme.colorScheme.outline
                 )
             }
@@ -439,7 +592,11 @@ class FriendList : ComponentActivity() {
             // So you can open the URL directly in your app, for example in a
             // Custom Tab.
             val toast =
-                Toast.makeText(applicationContext, "Spotify is not installed!", Toast.LENGTH_SHORT)
+                Toast.makeText(
+                    applicationContext,
+                    "Spotify is not installed!",
+                    Toast.LENGTH_SHORT
+                )
             toast.show()
         }
     }
@@ -531,15 +688,17 @@ class FriendList : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
-                Container(repo)
+                Container(
+                    repo,
+                    RichProfile()
+                        .withName("User1")
+                        .withFollowersCount(100)
+                        .withFollowingCount(500)
+                        .withImageUrl("https://i.imgur.com/3ZQ3Y7Q.jpg")
+                        .withTotalPublicPlaylistsCount(100)
+                )
             }
         }
     }
 
-    fun PackageManager.getPackageInfoCompat(packageName: String, flags: Int = 0): PackageInfo =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(flags.toLong()))
-        } else {
-            @Suppress("DEPRECATION") getPackageInfo(packageName, flags)
-        }
 }

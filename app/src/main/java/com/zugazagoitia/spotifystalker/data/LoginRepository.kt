@@ -3,7 +3,6 @@ package com.zugazagoitia.spotifystalker.data
 
 import com.zugazagoitia.spotifystalker.model.LoggedInUser
 import kotlin.jvm.Volatile
-import com.zugazagoitia.spotifystalker.model.RichProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -42,10 +41,14 @@ private constructor(private val dataSource: LoginDatasource) {
     companion object {
         @Volatile
         private var instance: LoginRepository? = null
-        fun getInstance(dataSource: LoginDatasource): LoginRepository? {
+        fun getInstance(dataSource: LoginDatasource): LoginRepository {
             if (instance == null) {
                 instance = LoginRepository(dataSource)
             }
+            return instance as LoginRepository
+        }
+
+        fun getInstance(): LoginRepository? {
             return instance
         }
 
@@ -53,6 +56,5 @@ private constructor(private val dataSource: LoginDatasource) {
             get() = if (instance == null) false else instance!!.user != null
         val user: LoggedInUser?
             get() = if (instance == null) null else instance!!.user
-
     }
 }

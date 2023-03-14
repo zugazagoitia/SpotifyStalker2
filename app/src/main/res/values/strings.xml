@@ -61,5 +61,9 @@
     <string name="userProfilePicture">\" Profile Picture\"</string>
     <string name="openInSpotify">Open in Spotify</string>
     <string name="profileIcon">Profile Icon</string>
-    <string name="loading_main_activity">Logging in...</string>
+    <string name="loading_main_activity">Logging in…</string>
+    <string name="spotify_menu_button_description">Open spotify links menu</string>
+    <string name="followers">followers</string>
+    <string name="following">following</string>
+    <string name="playlists">playlists</string>
 </resources>
